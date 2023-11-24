@@ -26,47 +26,6 @@ test.describe('test grpc requests', async () => {
     await page.getByText('CollectionPreRelease gRPCjust now').click();
   });
 
-  // test('can send gRPC requests with reflection', async ({ page }) => {
-  //   await page.getByLabel('Request Collection').getByTestId('UnaryWithOutProtoFile').press('Enter');
-  //   await expect(page.getByRole('button', { name: 'Select Method' })).toBeDisabled();
-  //   await page.getByTestId('button-server-reflection').click();
-
-  //   await page.getByRole('button', { name: 'Select Method' }).click();
-  //   await page.getByRole('menuitem', { name: 'RouteGuide/GetFeature' }).click();
-
-  //   await page.getByRole('tab', { name: 'Unary' }).click();
-  //   await page.getByRole('button', { name: 'Send' }).click();
-
-  //   // Check for the single Unary response
-  //   await page.getByRole('tab', { name: 'Response 1' }).click();
-  //   await expect(statusTag).toContainText('0 OK');
-  //   await expect(responseBody).toContainText('Berkshire Valley Management Area Trail');
-  // });
-
-
-  // {
-  //   "lo": {
-  //     "latitude":"409146138",
-  //     "longitude":"-746188906"
-  //   },
-  //   "hi": {
-  //     "latitude":"409146138",
-  //     "longitude":"-746188906"
-  //   }
-  // }
-
-  // test('can send gRPC requests', async ({ page }) => {
-  //   await page.getByLabel('Request Collection').getByTestId('UnaryWithOutProtoFile').press('Enter');
-  //   await expect(page.getByRole('button', { name: 'Select Method' })).toBeDisabled();
-  //   await page.getByTestId('button-server-reflection').click();
-
-  //   await page.getByRole('button', { name: 'Select Method' }).click();
-  //   await page.getByRole('menuitem', { name: 'RouteGuide/ListFeatures' }).click();
-  //   await page.getByRole('button', { name: 'Start' }).click();
-
-  //   await expect(statusTag).toContainText('0 OK');
-  // });
-
   const testCases = [
     {
       name: 'test unary request',
@@ -77,6 +36,19 @@ test.describe('test grpc requests', async () => {
       expectedStatus: '0 OK',
       expectedBody: 'Berkshire Valley Management Area Trail',
     },
+
+    // shoud update body as
+    // {
+    //   "lo": {
+    //     "latitude":"409146138",
+    //     "longitude":"-746188906"
+    //   },
+    //   "hi": {
+    //     "latitude":"409146138",
+    //     "longitude":"-746188906"
+    //   }
+    // }
+
     // {
     //   name: 'test server side stream',
     //   methodName: 'RouteGuide/ListFeatures',
@@ -94,26 +66,29 @@ test.describe('test grpc requests', async () => {
       expectedStatus: '0 OK',
       expectedBody: 'point_count": 0',
     },
-    // {
-    //   name: 'test bidirectional stream',
-    //   methodName: 'RouteGuide/RouteChat',
-    //   clickStart: true,
-    //   clickCommit: true,
-    //   clickTab: false,
-    //   expectedStatus: '0 OK',
-    //   expectedBody: '',
-    // },
+    {
+      name: 'test bidirectional stream',
+      methodName: 'RouteGuide/RouteChat',
+      clickStart: true,
+      clickCommit: true,
+      clickTab: false,
+      expectedStatus: '0 OK',
+      expectedBody: '', // TODO: should verify response
+    },
   ];
 
   for (const tc of testCases) {
     test(tc.name, async ({ page }) => {
+      // choose request
       await page.getByLabel('Request Collection').getByTestId('UnaryWithOutProtoFile').press('Enter');
       await expect(page.getByRole('button', { name: 'Select Method' })).toBeDisabled();
       await page.getByTestId('button-server-reflection').click();
 
+      // choose method
       await page.getByRole('button', { name: 'Select Method' }).click();
       await page.getByRole('menuitem', { name: tc.methodName }).click();
-      // await page.getByRole('button', { name: 'Start' }).click();
+
+      // start
       if (tc.clickStart) {
         await page.getByRole('button', { name: 'Start' }).click();
       } else {
@@ -123,11 +98,14 @@ test.describe('test grpc requests', async () => {
         await page.getByRole('button', { name: 'Commit' }).click();
       }
 
+      // verify
       if (tc.clickTab) {
         await page.getByRole('tab', { name: 'Response 1' }).click();
       }
       await expect(statusTag).toContainText(tc.expectedStatus);
-      await expect(responseBody).toContainText(tc.expectedBody);
+      if (tc.expectedBody) {
+        await expect(responseBody).toContainText(tc.expectedBody);
+      }
     });
   }
 });
