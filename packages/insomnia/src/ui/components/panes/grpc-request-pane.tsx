@@ -232,94 +232,94 @@ export const GrpcRequestPane: FunctionComponent<Props> = ({
         </PaneHeader>
         <PaneBody>
 
-            <Tabs aria-label="Grpc request pane tabs">
+          <Tabs aria-label="Grpc request pane tabs">
             <TabItem key="method-type" title={methodType ? GrpcMethodTypeName[methodType] : 'Method Type'}>
-                <>
-                  {running && canClientStream(methodType) && (
-                    <ActionButtonsContainer>
-                      <button
-                        className='btn btn--compact btn--clicky-small margin-left-sm bg-default'
-                        onClick={async () => {
-                          const requestBody = await getRenderedGrpcRequestMessage({
-                            request: activeRequest,
-                            environmentId,
-                            purpose: RENDER_PURPOSE_SEND,
-                          });
-                          const preparedMessage = {
-                            body: requestBody,
-                            requestId,
-                          };
-                          window.main.grpc.sendMessage(preparedMessage);
-                          setGrpcState({
-                            ...grpcState, requestMessages: [...requestMessages, {
-                              id: generateId(),
-                              text: preparedMessage.body.text || '',
-                              created: Date.now(),
-                            }],
-                          });
-                        }}
-                      >
-                        Stream <i className='fa fa-plus' />
-                      </button>
-                      <button
-                        className='btn btn--compact btn--clicky-small margin-left-sm bg-surprise'
-                        onClick={() => window.main.grpc.commit(requestId)}
-                      >
-                        Commit <i className='fa fa-arrow-right' />
-                      </button>
-                    </ActionButtonsContainer>
-                  )}
-                  <Tabs key={uniquenessKey} aria-label="Grpc tabbed messages tabs" isNested>
-                    {[
-                      <TabItem key="body" title="Body">
+              <>
+                {running && canClientStream(methodType) && (
+                  <ActionButtonsContainer>
+                    <button
+                      className='btn btn--compact btn--clicky-small margin-left-sm bg-default'
+                      onClick={async () => {
+                        const requestBody = await getRenderedGrpcRequestMessage({
+                          request: activeRequest,
+                          environmentId,
+                          purpose: RENDER_PURPOSE_SEND,
+                        });
+                        const preparedMessage = {
+                          body: requestBody,
+                          requestId,
+                        };
+                        window.main.grpc.sendMessage(preparedMessage);
+                        setGrpcState({
+                          ...grpcState, requestMessages: [...requestMessages, {
+                            id: generateId(),
+                            text: preparedMessage.body.text || '',
+                            created: Date.now(),
+                          }],
+                        });
+                      }}
+                    >
+                      Stream <i className='fa fa-plus' />
+                    </button>
+                    <button
+                      className='btn btn--compact btn--clicky-small margin-left-sm bg-surprise'
+                      onClick={() => window.main.grpc.commit(requestId)}
+                    >
+                      Commit <i className='fa fa-arrow-right' />
+                    </button>
+                  </ActionButtonsContainer>
+                )}
+                <Tabs key={uniquenessKey} aria-label="Grpc tabbed messages tabs" isNested>
+                  {[
+                    <TabItem key="body" title="Body">
+                      <CodeEditor
+                        id="grpc-request-editor"
+                        ref={editorRef}
+                        defaultValue={activeRequest.body.text}
+                        onChange={text => patchRequest(requestId, { body: { text } })}
+                        mode="application/json"
+                        enableNunjucks
+                        showPrettifyButton={true}
+                      />
+                    </TabItem>,
+                    ...requestMessages.sort((a, b) => a.created - b.created).map((m, index) => (
+                      <TabItem key={m.id} title={`Stream ${index + 1}`}>
                         <CodeEditor
-                          id="grpc-request-editor"
-                          ref={editorRef}
-                          defaultValue={activeRequest.body.text}
-                          onChange={text => patchRequest(requestId, { body: { text } })}
+                          id={'grpc-request-editor-tab' + m.id}
+                          defaultValue={m.text}
                           mode="application/json"
                           enableNunjucks
-                          showPrettifyButton={true}
+                          readOnly
+                          autoPrettify
                         />
-                      </TabItem>,
-                      ...requestMessages.sort((a, b) => a.created - b.created).map((m, index) => (
-                        <TabItem key={m.id} title={`Stream ${index + 1}`}>
-                          <CodeEditor
-                            id={'grpc-request-editor-tab' + m.id}
-                            defaultValue={m.text}
-                            mode="application/json"
-                            enableNunjucks
-                            readOnly
-                            autoPrettify
-                          />
-                        </TabItem>
-                      )),
-                    ]}
-                  </Tabs>
-                </>
-              </TabItem>
-              <TabItem key="headers" title="Headers">
-                <PanelContainer className="tall wide">
-                  <ErrorBoundary key={uniquenessKey} errorClassName="font-error pad text-center">
-                    <KeyValueEditor
-                      namePlaceholder="header"
-                      valuePlaceholder="value"
-                      descriptionPlaceholder="description"
-                      pairs={activeRequest.metadata}
-                      isDisabled={running}
-                      handleGetAutocompleteNameConstants={getCommonHeaderNames}
-                      handleGetAutocompleteValueConstants={getCommonHeaderValues}
-                      onChange={(metadata: GrpcRequestHeader[]) => patchRequest(requestId, { metadata })}
-                    />
-                  </ErrorBoundary>
-                </PanelContainer>
-              </TabItem>
+                      </TabItem>
+                    )),
+                  ]}
+                </Tabs>
+              </>
+            </TabItem>
+            <TabItem key="headers" title="Headers">
+              <PanelContainer className="tall wide">
+                <ErrorBoundary key={uniquenessKey} errorClassName="font-error pad text-center">
+                  <KeyValueEditor
+                    namePlaceholder="header"
+                    valuePlaceholder="value"
+                    descriptionPlaceholder="description"
+                    pairs={activeRequest.metadata}
+                    isDisabled={running}
+                    handleGetAutocompleteNameConstants={getCommonHeaderNames}
+                    handleGetAutocompleteValueConstants={getCommonHeaderValues}
+                    onChange={(metadata: GrpcRequestHeader[]) => patchRequest(requestId, { metadata })}
+                  />
+                </ErrorBoundary>
+              </PanelContainer>
+            </TabItem>
           </Tabs>
-            <EmptyStatePane
-              icon={<SvgIcon icon="bug" />}
-              documentationLinks={[documentationLinks.introductionToInsomnia]}
-              secondaryAction="Select a body type from above to send data in the body of a request"
-              title="Enter a URL and send to get a response"
+          <EmptyStatePane
+            icon={<SvgIcon icon="bug" />}
+            documentationLinks={[documentationLinks.introductionToInsomnia]}
+            secondaryAction="Select a body type from above to send data in the body of a request"
+            title="Enter a URL and send to get a response"
           />
         </PaneBody>
       </Pane>
