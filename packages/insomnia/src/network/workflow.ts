@@ -13,33 +13,6 @@ import { tryToInterpolateRequest, tryToTransformRequestWithPlugins } from '../ne
 import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 import { getWindowMessageHandler } from '../ui/window-message-handlers';
 
-// run id should be saved to where?
-// input/output of steps?
-// centerized vars: runId, certificate, timeline
-
-// pre request script?
-//     run manager
-//         runId
-//         callback - wrapper
-//             writeTimeline?
-//             render step
-
-// run manager
-//     runId
-//         find runId
-//         callback - wrapper
-
-// render step
-//     render request
-//     render plugin
-
-// SendRequest
-//     sendCurlAndWriteTimeline
-
-// ResponseHandler
-//     responseTransform
-//     writeToDownloadPath
-
 interface PreRequestScriptInput {
     insomnia: RawObject;
 }
@@ -159,5 +132,6 @@ export class RequestSender {
         );
 
         console.log('received response', response);
+        // TODO: do following steps
     };
 }

@@ -424,10 +424,7 @@ export const sendAction2: ActionFunction = async ({ request, params }) => {
     settings,
     clientCertificates,
     caCert,
-    `
-      await new Promise(resolve => setTimeout(resolve, 2800));
-      console.log('done');
-    `,
+    req.preRequestScript || '',
   );
 
   sender.start();
