@@ -68,6 +68,12 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(({
     searchParams.delete('error');
     setSearchParams({});
   }
+  if (searchParams.has('callback')) {
+    setLoading(false);
+    // clean up params
+    searchParams.delete('error');
+    setSearchParams({});
+  }
 
   const {
     activeWorkspace,

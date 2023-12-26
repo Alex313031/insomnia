@@ -424,11 +424,11 @@ export async function getRenderedGrpcRequest(
     purpose,
     extraInfo,
     request,
-    environmentId,
+    environment,
     skipBody,
   }: RenderGrpcRequestOptions,
 ) {
-  const renderContext = await getRenderContext({ request, environmentId, purpose, extraInfo });
+  const renderContext = await getRenderContext({ request, environment, purpose, extraInfo });
   const description = request.description;
   // Render description separately because it's lower priority
   request.description = '';
@@ -447,13 +447,13 @@ export async function getRenderedGrpcRequest(
 type RenderGrpcRequestMessageOptions = BaseRenderContextOptions & RenderRequest<GrpcRequest>;
 export async function getRenderedGrpcRequestMessage(
   {
-    environmentId,
+    environment,
     request,
     extraInfo,
     purpose,
   }: RenderGrpcRequestMessageOptions,
 ) {
-  const renderContext = await getRenderContext({ request, environmentId, purpose, extraInfo });
+  const renderContext = await getRenderContext({ request, environment, purpose, extraInfo });
   // Render request body
   const renderedBody: RenderedGrpcRequestBody = await render(request.body, renderContext);
   return renderedBody;
@@ -468,7 +468,7 @@ export interface RequestAndContext {
 export async function getRenderedRequestAndContext(
   {
     request,
-    environmentId,
+    environment,
     extraInfo,
     purpose,
   }: RenderRequestOptions,
@@ -477,7 +477,7 @@ export async function getRenderedRequestAndContext(
   const workspace = ancestors.find(isWorkspace);
   const parentId = workspace ? workspace._id : 'n/a';
   const cookieJar = await models.cookieJar.getOrCreateForParentId(parentId);
-  const renderContext = await getRenderContext({ request, environmentId, ancestors, purpose, extraInfo });
+  const renderContext = await getRenderContext({ request, environment, ancestors, purpose, extraInfo });
 
   // HACK: Switch '#}' to '# }' to prevent Nunjucks from barfing
   // https://github.com/kong/insomnia/issues/895

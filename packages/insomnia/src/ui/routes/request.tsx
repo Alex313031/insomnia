@@ -425,6 +425,7 @@ export const sendAction2: ActionFunction = async ({ request, params }) => {
     clientCertificates,
     caCert,
     req.preRequestScript || '',
+    request.url,
   );
 
   sender.start();

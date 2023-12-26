@@ -93,9 +93,10 @@ export async function sendCurlAndWriteTimeline(
   clientCertificates: ClientCertificate[],
   caCert: CaCertificate | null,
   settings: Settings,
+  inputTimeline?: ResponseTimelineEntry[],
 ) {
   const requestId = renderedRequest._id;
-  const timeline: ResponseTimelineEntry[] = [];
+  const timeline: ResponseTimelineEntry[] = inputTimeline ? [...inputTimeline] : [];
 
   const { finalUrl, socketPath } = transformUrl(renderedRequest.url, renderedRequest.parameters, renderedRequest.authentication, renderedRequest.settingEncodeUrl);
 

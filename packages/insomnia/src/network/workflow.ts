@@ -1,17 +1,28 @@
+import { createWriteStream } from 'node:fs';
+import path from 'node:path';
+
+import * as contentDisposition from 'content-disposition';
+import { extension as mimeExtension } from 'mime-types';
+import { redirect } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
+import { getContentDispositionHeader } from '../common/misc';
 import { RENDER_PURPOSE_SEND } from '../common/render';
 import { RenderedRequest } from '../common/render';
 import type { ResponseTimelineEntry } from '../main/network/libcurl-promise';
+import { ResponsePatch } from '../main/network/libcurl-promise';
+import * as models from '../models';
 import { CaCertificate } from '../models/ca-certificate';
 import { ClientCertificate } from '../models/client-certificate';
 import { Environment } from '../models/environment';
 import type { Request } from '../models/request';
+import { RequestMeta } from '../models/request-meta';
 import { Settings } from '../models/settings';
-import { sendCurlAndWriteTimeline } from '../network/network';
+import { responseTransform, sendCurlAndWriteTimeline } from '../network/network';
 import { tryToInterpolateRequest, tryToTransformRequestWithPlugins } from '../network/network';
 import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 import { getWindowMessageHandler } from '../ui/window-message-handlers';
+import { invariant } from '../utils/invariant';
 
 interface PreRequestScriptInput {
     insomnia: RawObject;
@@ -25,6 +36,7 @@ export class RequestSender {
     private clientCertificates: ClientCertificate[];
     private caCert: CaCertificate | null;
     private preRequestScript: string;
+    private redirectUrl: string;
 
     private timeline: ResponseTimelineEntry[];
 
@@ -36,6 +48,7 @@ export class RequestSender {
         clientCertificates: ClientCertificate[],
         caCert: CaCertificate | null,
         preRequestScript: string,
+        redirectUrl: string,
     ) {
         this.request = req;
         this.shouldPromptForPathAfterResponse = shouldPromptForPathAfterResponse;
@@ -44,6 +57,7 @@ export class RequestSender {
         this.clientCertificates = clientCertificates;
         this.caCert = caCert;
         this.preRequestScript = preRequestScript;
+        this.redirectUrl = redirectUrl;
 
         this.timeline = [];
     }
@@ -99,8 +113,16 @@ export class RequestSender {
         const result = ev.data.result;
         this.environment.data = result.environment;
 
-        const renderedRequest = await this.renderRequest(this.request);
-        await this.sendRequest(renderedRequest);
+        const { renderedRequest, renderedResult } = await this.renderRequest(this.request);
+        await this.sendRequest(renderedRequest, renderedResult);
+
+        // handle error
+        // const navigate = useNavigate();
+        // navigate(this.redirectUrl);
+        const callbackUrl = new URL(this.redirectUrl);
+        callbackUrl.searchParams.set('callback', this.request._id);
+        redirect(`${callbackUrl.pathname}?${callbackUrl.searchParams}`);
+        // redirect(this.redirectUrl);
     };
 
     renderRequest = async (req: Request) => {
@@ -120,18 +142,79 @@ export class RequestSender {
             }
         }
 
-        return renderedRequest;
+        return { renderedRequest, renderedResult };
     };
 
-    sendRequest = async (req: RenderedRequest) => {
+    sendRequest = async (req: RenderedRequest, renderedResult: Record<string, any>) => {
         const response = await sendCurlAndWriteTimeline(
             req,
             this.clientCertificates,
             this.caCert,
             this.settings,
+            this.timeline,
         );
 
         console.log('received response', response);
-        // TODO: do following steps
+
+        const requestMeta = await models.requestMeta.getByParentId(this.request._id);
+        invariant(requestMeta, 'RequestMeta not found');
+
+        const responsePatch = await responseTransform(response, this.environment._id, req, renderedResult.context);
+        const is2XXWithBodyPath = responsePatch.statusCode && responsePatch.statusCode >= 200 && responsePatch.statusCode < 300 && responsePatch.bodyPath;
+        const shouldWriteToFile = this.shouldPromptForPathAfterResponse && is2XXWithBodyPath;
+        if (!shouldWriteToFile) {
+            const response = await models.response.create(responsePatch, this.settings.maxHistoryResponses);
+            await models.requestMeta.update(requestMeta, { activeResponseId: response._id });
+            // setLoading(false);
+            return null;
+        }
+        if (requestMeta.downloadPath) {
+            const header = getContentDispositionHeader(responsePatch.headers || []);
+            const name = header
+                ? contentDisposition.parse(header.value).parameters.filename
+                : `${req.name.replace(/\s/g, '-').toLowerCase()}.${responsePatch.contentType && mimeExtension(responsePatch.contentType) || 'unknown'}`;
+            return this.writeToDownloadPath(path.join(requestMeta.downloadPath, name), responsePatch, requestMeta, this.settings.maxHistoryResponses);
+        } else {
+            const defaultPath = window.localStorage.getItem('insomnia.sendAndDownloadLocation');
+            const { filePath } = await window.dialog.showSaveDialog({
+                title: 'Select Download Location',
+                buttonLabel: 'Save',
+                // NOTE: An error will be thrown if defaultPath is supplied but not a String
+                ...(defaultPath ? { defaultPath } : {}),
+            });
+            if (!filePath) {
+                // setLoading(false);
+                return null;
+            }
+            window.localStorage.setItem('insomnia.sendAndDownloadLocation', filePath);
+            return this.writeToDownloadPath(filePath, responsePatch, requestMeta, this.settings.maxHistoryResponses);
+        }
+    };
+
+    writeToDownloadPath = (downloadPathAndName: string, responsePatch: ResponsePatch, requestMeta: RequestMeta, maxHistoryResponses: number) => {
+        invariant(downloadPathAndName, 'filename should be set by now');
+
+        const to = createWriteStream(downloadPathAndName);
+        const readStream = models.response.getBodyStream(responsePatch);
+        if (!readStream || typeof readStream === 'string') {
+            return null;
+        }
+        readStream.pipe(to);
+
+        return new Promise(resolve => {
+            readStream.on('end', async () => {
+                responsePatch.error = `Saved to ${downloadPathAndName}`;
+                const response = await models.response.create(responsePatch, maxHistoryResponses);
+                await models.requestMeta.update(requestMeta, { activeResponseId: response._id });
+                resolve(null);
+            });
+            readStream.on('error', async err => {
+                console.warn('Failed to download request after sending', responsePatch.bodyPath, err);
+                const response = await models.response.create(responsePatch, maxHistoryResponses);
+                await models.requestMeta.update(requestMeta, { activeResponseId: response._id });
+                resolve(null);
+            });
+        });
+
     };
 }

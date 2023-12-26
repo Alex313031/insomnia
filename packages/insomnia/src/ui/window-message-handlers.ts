@@ -1,8 +1,9 @@
+import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 
 type MessageHandler = (ev: MessageEvent) => Promise<void>;;
 interface ExecuteScriptCallback {
     id: string;
-    cb: (ev: MessageEvent) => void;
+    promise: Promise<void>;
 }
 
 // WindowMessageHandler handles entities in followings domains:
@@ -109,7 +110,7 @@ class WindowMessageHandler {
         this.actionHandlers.clear();
     };
 
-    runPreRequestScript = (id: string, code: string, context: object, cb: (ev: MessageEvent) => void): boolean => {
+    runPreRequestScript = async (id: string, code: string, context: object, cb: (ev: MessageEvent) => void): Promise<boolean> => {
         if (!this.hiddenBrowserWindowPort) {
             console.error('hidden browser window port is not inited');
             return false;
