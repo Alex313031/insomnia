@@ -19,6 +19,7 @@ import type { HeaderResult, ResponsePatch, ResponseTimelineEntry } from '../main
 import * as models from '../models';
 import { CaCertificate } from '../models/ca-certificate';
 import { ClientCertificate } from '../models/client-certificate';
+import { Environment } from '../models/environment';
 import type { Request, RequestAuthentication, RequestParameter } from '../models/request';
 import type { Settings } from '../models/settings';
 import { isWorkspace } from '../models/workspace';
@@ -64,11 +65,11 @@ export const fetchRequestData = async (requestId: string) => {
   return { request, environment, settings, clientCertificates, caCert, activeEnvironmentId };
 };
 
-export const tryToInterpolateRequest = async (request: Request, environmentId: string, purpose?: RenderPurpose, extraInfo?: ExtraRenderInfo) => {
+export const tryToInterpolateRequest = async (request: Request, environment: string | Environment, purpose?: RenderPurpose, extraInfo?: ExtraRenderInfo) => {
   try {
     return await getRenderedRequestAndContext({
       request: request,
-      environmentId,
+      environment,
       purpose,
       extraInfo,
     });

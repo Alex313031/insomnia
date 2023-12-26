@@ -190,7 +190,7 @@ class InsomniaObject {
     };
 }
 
-interface RawObject {
+export interface RawObject {
     globals?: object;
     environment?: object;
     collectionVariables?: object;

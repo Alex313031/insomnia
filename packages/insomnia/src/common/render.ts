@@ -297,7 +297,7 @@ interface RenderRequest<T extends Request | GrpcRequest | WebSocketRequest> {
 }
 
 interface BaseRenderContextOptions {
-  environmentId?: string;
+  environment?: string | Environment;
   purpose?: RenderPurpose;
   extraInfo?: ExtraRenderInfo;
 }
@@ -308,7 +308,7 @@ interface RenderContextOptions extends BaseRenderContextOptions, Partial<RenderR
 export async function getRenderContext(
   {
     request,
-    environmentId,
+    environment,
     ancestors: _ancestors,
     purpose,
     extraInfo,
@@ -325,7 +325,14 @@ export async function getRenderContext(
   const rootEnvironment = await models.environment.getOrCreateForParentId(
     workspace ? workspace._id : 'n/a',
   );
-  const subEnvironment = await models.environment.getById(environmentId || 'n/a');
+
+  const subEnvironmentId = environment ?
+    typeof environment === 'string' ? environment : 'n/a' :
+    'n/a';
+  const subEnvironment = environment ?
+    typeof environment === 'string' ? await models.environment.getById(environment) : environment :
+    await models.environment.getById('n/a');
+
   const keySource: Record<string, string> = {};
 
   // Function that gets Keys and stores their Source location
@@ -393,7 +400,7 @@ export async function getRenderContext(
       const p = extraInfo.find(v => v.name === key);
       return p ? p.value : null;
     },
-    getEnvironmentId: () => environmentId,
+    getEnvironmentId: () => subEnvironmentId,
     // It is possible for a project to not exist because this code path can be reached via Inso/insomnia-send-request which has no concept of a project.
     getProjectId: () => project?._id,
   };
@@ -457,6 +464,7 @@ export interface RequestAndContext {
   request: RenderedRequest;
   context: Record<string, any>;
 }
+
 export async function getRenderedRequestAndContext(
   {
     request,

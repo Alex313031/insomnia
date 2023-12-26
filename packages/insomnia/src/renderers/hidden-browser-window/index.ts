@@ -43,7 +43,7 @@ async function init() {
 
                 channel.port1.postMessage({
                     action: action === executeAction ? 'message-channel://caller/respond' : 'message-channel://caller/debug/respond',
-                    id: action === executeAction ? undefined : ev.data.options.id,
+                    id: ev.data.options.id,
                     result,
                 });
             } catch (e) {
@@ -51,7 +51,7 @@ async function init() {
 
                 channel.port1.postMessage({
                     action: action === executeAction ? 'message-channel://caller/respond' : 'message-channel://caller/debug/respond',
-                    id: action === executeAction ? undefined : ev.data.options.id,
+                    id: ev.data.options.id,
                     error: { message: message || 'unknown error' },
                 });
             }

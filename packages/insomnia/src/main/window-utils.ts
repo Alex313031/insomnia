@@ -69,6 +69,11 @@ export function createHiddenBrowserWindow() {
     }
   });
 
+  hiddenBrowserWindow?.on('ready-to-show', () => {
+    hiddenBrowserWindow?.show();
+    hiddenBrowserWindow?.webContents.openDevTools();
+  });
+
   processes.add(hiddenBrowserWindow);
 
   return hiddenBrowserWindow;

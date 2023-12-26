@@ -115,7 +115,7 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(({
   const send = useCallback((sendParams: SendActionParams) => {
     fetcher.submit(JSON.stringify(sendParams),
       {
-        action: `/organization/${organizationId}/project/${projectId}/workspace/${workspaceId}/debug/request/${requestId}/send`,
+        action: `/organization/${organizationId}/project/${projectId}/workspace/${workspaceId}/debug/request/${requestId}/send2`,
         method: 'post',
         encType: 'application/json',
       });
