@@ -62,14 +62,21 @@ export const fetchRequestData = async (requestId: string) => {
   const clientCertificates = await models.clientCertificate.findByParentId(workspaceId);
   const caCert = await models.caCertificate.findByParentId(workspaceId);
 
-  return { request, environment, settings, clientCertificates, caCert, activeEnvironmentId };
+  return { request, environment, settings, clientCertificates, caCert, activeEnvironmentId, workspace };
 };
 
-export const tryToInterpolateRequest = async (request: Request, environment: string | Environment, purpose?: RenderPurpose, extraInfo?: ExtraRenderInfo) => {
+export const tryToInterpolateRequest = async (
+  request: Request,
+  environment: string | Environment,
+  purpose?: RenderPurpose,
+  extraInfo?: ExtraRenderInfo,
+  baseEnvironment?: Environment,
+) => {
   try {
     return await getRenderedRequestAndContext({
       request: request,
       environment,
+      baseEnvironment,
       purpose,
       extraInfo,
     });

@@ -92,6 +92,7 @@ export function render(
         };
         newError.type = 'render';
         newError.reason = reason;
+        console.log(text, config.path, templatingContext);
         reject(newError);
       } else {
         resolve(result);

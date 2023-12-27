@@ -32,7 +32,7 @@ async function init() {
 
                             clearTimeout(timeoutChecker);
                             resolve(insomnia.toObject());
-                        });
+                        }).catch(e => { throw e; });
                     `
                 );
 

@@ -413,19 +413,23 @@ export const sendAction2: ActionFunction = async ({ request, params }) => {
     settings,
     clientCertificates,
     caCert,
-    // activeEnvironmentId,
+    workspace,
   } = await fetchRequestData(requestId);
   const { shouldPromptForPathAfterResponse } = await request.json() as SendActionParams;
+
+  const baseEnvironment = await models.environment.getOrCreateForParentId(
+    workspace ? workspace._id : 'n/a',
+  );
 
   const sender = new RequestSender(
     req,
     shouldPromptForPathAfterResponse,
+    baseEnvironment,
     environment,
     settings,
     clientCertificates,
     caCert,
     req.preRequestScript || '',
-    request.url,
   );
 
   await sender.start();

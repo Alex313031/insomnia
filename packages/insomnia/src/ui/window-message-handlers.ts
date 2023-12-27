@@ -1,9 +1,15 @@
 import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 
-type MessageHandler = (ev: MessageEvent) => Promise<void>;;
-interface ExecuteScriptCallback {
+type MessageHandler = (ev: MessageEvent) => Promise<void>;
+
+export interface ScriptError {
+    message: string;
+}
+
+interface ScriptResultResolver {
     id: string;
     resolve: (value: RawObject) => void;
+    reject: (error: ScriptError) => void;
 }
 
 // WindowMessageHandler handles entities in followings domains:
@@ -13,11 +19,9 @@ interface ExecuteScriptCallback {
 class WindowMessageHandler {
     private hiddenBrowserWindowPort: MessagePort | undefined;
     private actionHandlers: Map<string, MessageHandler> = new Map();
-    private runScriptCallbacks: ExecuteScriptCallback[];
+    private scriptResultResolvers: ScriptResultResolver[] = [];
 
-    constructor() {
-        this.runScriptCallbacks = [];
-    }
+    constructor() { }
 
     publishPortHandler = async (ev: MessageEvent) => {
         if (ev.ports.length === 0) {
@@ -34,22 +38,22 @@ class WindowMessageHandler {
                     return;
                 }
 
-                const callbackIndex = this.runScriptCallbacks.findIndex(callback => callback.id === ev.data.id);
+                const callbackIndex = this.scriptResultResolvers.findIndex(callback => callback.id === ev.data.id);
                 if (callbackIndex < 0) {
                     console.error(`id(${ev.data.id}) is not found in the callback list`);
                     return;
                 }
 
                 if (ev.data.result) {
-                    this.runScriptCallbacks[callbackIndex].resolve(ev.data.result);
+                    this.scriptResultResolvers[callbackIndex].resolve(ev.data.result);
                 } else if (ev.data.error) {
-                    this.runScriptCallbacks[callbackIndex].resolve(ev.data.error);
+                    this.scriptResultResolvers[callbackIndex].reject(ev.data.error);
                 } else {
                     console.error('no data found in the message port response');
                 }
 
                 // skip previous ones for keeping it simple
-                this.runScriptCallbacks = this.runScriptCallbacks.slice(callbackIndex + 1);
+                this.scriptResultResolvers = this.scriptResultResolvers.slice(callbackIndex + 1);
             } else if (ev.data.action === 'message-channel://caller/debug/respond') {
                 if (ev.data.result) {
                     window.localStorage.setItem(`test_result:${ev.data.id}`, JSON.stringify(ev.data.result));
@@ -117,16 +121,21 @@ class WindowMessageHandler {
         this.actionHandlers.clear();
     };
 
-    runPreRequestScript = async (id: string, code: string, context: object): Promise<RawObject | undefined> => {
+    runPreRequestScript = async (
+        id: string,
+        code: string,
+        context: object,
+    ): Promise<RawObject | undefined> => {
         if (!this.hiddenBrowserWindowPort) {
             console.error('hidden browser window port is not inited');
             return undefined;
         }
 
-        const promise = new Promise<RawObject>(resolve => {
-            this.runScriptCallbacks.push({
+        const promise = new Promise<RawObject>((resolve, reject) => {
+            this.scriptResultResolvers.push({
                 id,
                 resolve,
+                reject,
             });
         });
 
