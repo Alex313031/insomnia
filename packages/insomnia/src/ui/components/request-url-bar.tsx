@@ -69,10 +69,11 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(({
     setSearchParams({});
   }
   if (searchParams.has('callback')) {
-    setLoading(false);
     // clean up params
-    searchParams.delete('error');
+    searchParams.delete('callback');
     setSearchParams({});
+
+    // setLoading(false);
   }
 
   const {

@@ -3,7 +3,7 @@ import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 type MessageHandler = (ev: MessageEvent) => Promise<void>;;
 interface ExecuteScriptCallback {
     id: string;
-    promise: Promise<void>;
+    resolve: (value: RawObject) => void;
 }
 
 // WindowMessageHandler handles entities in followings domains:
@@ -40,7 +40,14 @@ class WindowMessageHandler {
                     return;
                 }
 
-                this.runScriptCallbacks[callbackIndex].cb(ev);
+                if (ev.data.result) {
+                    this.runScriptCallbacks[callbackIndex].resolve(ev.data.result);
+                } else if (ev.data.error) {
+                    this.runScriptCallbacks[callbackIndex].resolve(ev.data.error);
+                } else {
+                    console.error('no data found in the message port response');
+                }
+
                 // skip previous ones for keeping it simple
                 this.runScriptCallbacks = this.runScriptCallbacks.slice(callbackIndex + 1);
             } else if (ev.data.action === 'message-channel://caller/debug/respond') {
@@ -110,15 +117,17 @@ class WindowMessageHandler {
         this.actionHandlers.clear();
     };
 
-    runPreRequestScript = async (id: string, code: string, context: object, cb: (ev: MessageEvent) => void): Promise<boolean> => {
+    runPreRequestScript = async (id: string, code: string, context: object): Promise<RawObject | undefined> => {
         if (!this.hiddenBrowserWindowPort) {
             console.error('hidden browser window port is not inited');
-            return false;
+            return undefined;
         }
 
-        this.runScriptCallbacks.push({
-            id,
-            cb,
+        const promise = new Promise<RawObject>(resolve => {
+            this.runScriptCallbacks.push({
+                id,
+                resolve,
+            });
         });
 
         this.hiddenBrowserWindowPort.postMessage({
@@ -130,7 +139,7 @@ class WindowMessageHandler {
             },
         });
 
-        return true;
+        return promise;
     };
 }
 

@@ -75,22 +75,47 @@ export class RequestSender {
         };
 
         if (this.preRequestScript !== '') {
-            this.runPreRequestScript(insomniaObject, this.preRequestScript);
+            const rawObjectOrError = await this.runPreRequestScript(insomniaObject, this.preRequestScript);
+            if (!rawObjectOrError) { // TODO: use better differentiate
+                console.error('no response returned');
+                return;
+            } else if ('message' in rawObjectOrError) {
+                // TODO: alert user
+                console.error(rawObjectOrError);
+            } else {
+                this.environment.data = (rawObjectOrError as Record<string, any>).environment;
+            }
         } else { // skip script
             // TODO: start rendering
+            // keep environment
         }
+
+        this.timeline.push({
+            value: 'Pre-request script execution done',
+            name: 'Text',
+            timestamp: Date.now(),
+        });
+
+        const { renderedRequest, renderedResult } = await this.renderRequest(this.request);
+        await this.sendRequest(renderedRequest, renderedResult);
+
+        // handle error
+        // const callbackUrl = new URL(this.redirectUrl);
+        // callbackUrl.searchParams.set('callback', this.request._id);
+        // redirect(`${callbackUrl.pathname}?${callbackUrl.searchParams}`);
+        // redirect(this.redirectUrl);
+        return;
     };
 
-    runPreRequestScript = (context: object, code: string) => {
+    runPreRequestScript = async (context: object, code: string) => {
         // TODO: populate environment into context
 
         const scriptRunId = uuidv4();
         const winMsgHandler = getWindowMessageHandler();
-        winMsgHandler.runPreRequestScript(
+        return await winMsgHandler.runPreRequestScript(
             scriptRunId,
             code,
             context,
-            this.runPreRequestScriptCallback,
         );
     };
 

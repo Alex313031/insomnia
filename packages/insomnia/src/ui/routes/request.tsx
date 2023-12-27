@@ -428,9 +428,11 @@ export const sendAction2: ActionFunction = async ({ request, params }) => {
     request.url,
   );
 
-  sender.start();
+  await sender.start();
 
-  return null;
+  const callbackUrl = new URL(request.url.replace('/send2', ''));
+  callbackUrl.searchParams.set('callback', req._id);
+  return redirect(`${callbackUrl.pathname}?${callbackUrl.searchParams}`);
 };
 
 export const deleteAllResponsesAction: ActionFunction = async ({ params }) => {
