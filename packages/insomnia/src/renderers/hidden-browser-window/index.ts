@@ -7,6 +7,7 @@ const executeAction = 'message-channel://hidden.browser-window/execute';
 
 async function init() {
     const channel = new MessageChannel();
+
     channel.port1.onmessage = async (ev: MessageEvent) => {
         const action = ev.data.action;
         const timeout = ev.data.timeout ? ev.data.timeout : 3000;
@@ -61,6 +62,16 @@ async function init() {
     };
 
     window.postMessage('message-event://preload/publish-port', '*', [channel.port2]);
+
+    window.onbeforeunload = (ev: BeforeUnloadEvent) => {
+        ev.preventDefault();
+
+        channel.port1.postMessage({
+            action: 'message-channel://consumers/close',
+        });
+
+        window.close();
+    };
 }
 
 init();

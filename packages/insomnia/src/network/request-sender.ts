@@ -19,11 +19,12 @@ import { Environment } from '../models/environment';
 import type { Request } from '../models/request';
 import { RequestMeta } from '../models/request-meta';
 import { Settings } from '../models/settings';
-import { responseTransform, sendCurlAndWriteTimeline } from '../network/network';
-import { tryToInterpolateRequest, tryToTransformRequestWithPlugins } from '../network/network';
 import { RawObject } from '../renderers/hidden-browser-window/inso-object';
 import { getWindowMessageHandler } from '../ui/window-message-handlers';
 import { invariant } from '../utils/invariant';
+import { storeTimeline } from './network';
+import { responseTransform, sendCurlAndWriteTimeline } from './network';
+import { tryToInterpolateRequest, tryToTransformRequestWithPlugins } from './network';
 
 interface PreRequestScriptMessage {
     insomnia: RawObject;
@@ -74,15 +75,15 @@ export class RequestSender {
             },
         };
 
-        if (this.preRequestScript !== '') {
-            try {
-                const rawObjectOrError = await this.runPreRequestScript(insomniaObject, this.preRequestScript);
-                if (!rawObjectOrError) {
+        try {
+            if (this.preRequestScript !== '') {
+                const populatedObj = await this.runPreRequestScript(insomniaObject, this.preRequestScript);
+                if (!populatedObj) {
                     console.error('no response returned');
                     return;
                 }
 
-                const rawObj = rawObjectOrError as Record<string, any>;
+                const rawObj = populatedObj as Record<string, any>;
                 const envJsonMap = orderedJSON.parse(
                     JSON.stringify(rawObj.environment),
                     JSON_ORDER_PREFIX,
@@ -100,28 +101,39 @@ export class RequestSender {
                 this.baseEnvironment.data = rawObj.collectionVariables;
                 this.baseEnvironment.dataPropertyOrder = baseEnvJsonMap.map;
 
-            } catch (e) {
-                if (!e.message) {
-                    console.error(`no message found in error: ${JSON.stringify(e)}`);
-                }
-
                 this.timeline.push({
-                    value: `Pre-request script execution failed: ${e.message}`,
+                    value: 'Pre-request script execution done',
                     name: 'Text',
                     timestamp: Date.now(),
                 });
+            }
+
+            const { renderedRequest, renderedResult } = await this.renderRequest(this.request);
+            const responsePatch = await this.sendRequest(renderedRequest);
+            await this.updateRequestAndResponse(renderedRequest, responsePatch, renderedResult);
+        } catch (e) {
+            if (!e.message) {
+                console.error(`no message found in error: ${JSON.stringify(e)}`);
+                e.message = 'unknown error';
+            }
+
+            const timelinePath = await storeTimeline(this.timeline);
+
+            const nonRespPatch = {
+                parentId: this.request._id,
+                timelinePath,
+                statusCode: 0,
+                statusMessage: 'Error',
+            };
+
+            const requestMeta = await models.requestMeta.getByParentId(this.request._id);
+            if (!requestMeta) {
+                console.error(`no request meta found for request: ${this.request._id}`);
                 return;
             }
+            const response = await models.response.create(nonRespPatch, this.settings.maxHistoryResponses);
+            await models.requestMeta.update(requestMeta, { activeResponseId: response._id });
         }
-
-        this.timeline.push({
-            value: 'Pre-request script execution done',
-            name: 'Text',
-            timestamp: Date.now(),
-        });
-
-        const { renderedRequest, renderedResult } = await this.renderRequest(this.request);
-        await this.sendRequest(renderedRequest, renderedResult);
     };
 
     runPreRequestScript = async (context: object, code: string) => {
@@ -154,20 +166,30 @@ export class RequestSender {
         return { renderedRequest, renderedResult };
     };
 
-    sendRequest = async (req: RenderedRequest, renderedResult: Record<string, any>) => {
-        const response = await sendCurlAndWriteTimeline(
+    sendRequest = async (req: RenderedRequest) => {
+        return await sendCurlAndWriteTimeline(
             req,
             this.clientCertificates,
             this.caCert,
             this.settings,
             this.timeline,
         );
+    };
 
+    updateRequestAndResponse = async (
+        req: RenderedRequest,
+        rawRespPatch: ResponsePatch,
+        renderedResult: Record<string, any>,
+    ) => {
         const requestMeta = await models.requestMeta.getByParentId(this.request._id);
         invariant(requestMeta, 'RequestMeta not found');
 
-        const responsePatch = await responseTransform(response, this.environment._id, req, renderedResult.context);
-        const is2XXWithBodyPath = responsePatch.statusCode && responsePatch.statusCode >= 200 && responsePatch.statusCode < 300 && responsePatch.bodyPath;
+        const responsePatch = await responseTransform(rawRespPatch, this.environment._id, req, renderedResult.context);
+        const is2XXWithBodyPath = responsePatch.statusCode &&
+            responsePatch.statusCode >= 200 &&
+            responsePatch.statusCode < 300 &&
+            responsePatch.bodyPath;
+
         const shouldWriteToFile = this.shouldPromptForPathAfterResponse && is2XXWithBodyPath;
         if (!shouldWriteToFile) {
             const response = await models.response.create(responsePatch, this.settings.maxHistoryResponses);
@@ -175,6 +197,7 @@ export class RequestSender {
             // setLoading(false);
             return null;
         }
+
         if (requestMeta.downloadPath) {
             const header = getContentDispositionHeader(responsePatch.headers || []);
             const name = header
@@ -193,12 +216,18 @@ export class RequestSender {
                 // setLoading(false);
                 return null;
             }
+
             window.localStorage.setItem('insomnia.sendAndDownloadLocation', filePath);
             return this.writeToDownloadPath(filePath, responsePatch, requestMeta, this.settings.maxHistoryResponses);
         }
     };
 
-    writeToDownloadPath = (downloadPathAndName: string, responsePatch: ResponsePatch, requestMeta: RequestMeta, maxHistoryResponses: number) => {
+    writeToDownloadPath = (
+        downloadPathAndName: string,
+        responsePatch: ResponsePatch,
+        requestMeta: RequestMeta,
+        maxHistoryResponses: number,
+    ) => {
         invariant(downloadPathAndName, 'filename should be set by now');
 
         const to = createWriteStream(downloadPathAndName);
@@ -222,6 +251,5 @@ export class RequestSender {
                 resolve(null);
             });
         });
-
     };
 }

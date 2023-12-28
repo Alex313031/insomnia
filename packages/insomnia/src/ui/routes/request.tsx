@@ -24,7 +24,7 @@ import { Response } from '../../models/response';
 import { isWebSocketRequestId, WebSocketRequest } from '../../models/websocket-request';
 import { WebSocketResponse } from '../../models/websocket-response';
 import { fetchRequestData, responseTransform, sendCurlAndWriteTimeline, tryToInterpolateRequest, tryToTransformRequestWithPlugins } from '../../network/network';
-import { RequestSender } from '../../network/workflow';
+import { RequestSender } from '../../network/request-sender';
 import { invariant } from '../../utils/invariant';
 import { SegmentEvent } from '../analytics';
 import { updateMimeType } from '../components/dropdowns/content-type-dropdown';

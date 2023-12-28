@@ -62,6 +62,10 @@ class WindowMessageHandler {
                     window.localStorage.setItem(`test_error:${ev.data.id}`, JSON.stringify(ev.data.error));
                     console.error(ev.data.error);
                 }
+            } else if (ev.data.action === 'message-channel://consumers/close') {
+                this.hiddenBrowserWindowPort?.close();
+                this.hiddenBrowserWindowPort = undefined;
+                console.log('[hidden win] hidden browser window port is closed');
             } else {
                 console.error(`unknown action ${ev}`);
             }
@@ -71,11 +75,11 @@ class WindowMessageHandler {
     debugEventHandler = async (ev: MessageEvent) => {
         if (!this.hiddenBrowserWindowPort) {
             console.error('hidden browser window port is not inited');
-            return;
+            window.hiddenBrowserWindow.start();
         }
 
         console.info('sending script to hidden browser window');
-        this.hiddenBrowserWindowPort.postMessage({
+        this.hiddenBrowserWindowPort?.postMessage({
             action: 'message-channel://hidden.browser-window/debug',
             options: {
                 id: ev.data.id,
@@ -112,13 +116,15 @@ class WindowMessageHandler {
             try {
                 handler(ev);
             } catch (e) {
-                console.error(`failed to handle event message (${ev.data.action}): ${e.message}`);
+                console.error(`failed   to handle event message (${ev.data.action}): ${e.message}`);
             }
         };
     };
 
     stop = () => {
         this.actionHandlers.clear();
+        window.hiddenBrowserWindow.stop();
+        window.onmessage = null;
     };
 
     runPreRequestScript = async (
@@ -128,7 +134,7 @@ class WindowMessageHandler {
     ): Promise<RawObject | undefined> => {
         if (!this.hiddenBrowserWindowPort) {
             console.error('hidden browser window port is not inited');
-            return undefined;
+            window.hiddenBrowserWindow.start();
         }
 
         const promise = new Promise<RawObject>((resolve, reject) => {
@@ -139,7 +145,17 @@ class WindowMessageHandler {
             });
         });
 
-        this.hiddenBrowserWindowPort.postMessage({
+        // TODO: find a better way to wait for hidden browser window ready
+        // this is relatively simpler than receiving a 'ready' message from hidden browser window
+        for (let i = 0; i < 30; i++) {
+            if (this.hiddenBrowserWindowPort) {
+                break;
+            } else {
+                await new Promise<void>(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        this.hiddenBrowserWindowPort?.postMessage({
             action: 'message-channel://hidden.browser-window/execute',
             options: {
                 id,
