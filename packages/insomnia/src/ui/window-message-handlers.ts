@@ -38,7 +38,8 @@ class WindowMessageHandler {
                     return;
                 }
 
-                const callbackIndex = this.scriptResultResolvers.findIndex(callback => callback.id === ev.data.id);
+                const callbackIndex = this.scriptResultResolvers.
+                    findIndex(callback => callback.id === ev.data.id);
                 if (callbackIndex < 0) {
                     console.error(`id(${ev.data.id}) is not found in the callback list`);
                     return;
@@ -137,16 +138,9 @@ class WindowMessageHandler {
             window.hiddenBrowserWindow.start();
         }
 
-        const promise = new Promise<RawObject>((resolve, reject) => {
-            this.scriptResultResolvers.push({
-                id,
-                resolve,
-                reject,
-            });
-        });
-
-        // TODO: find a better way to wait for hidden browser window ready
+        // the hiddenBrowserWindow may be still in starting
         // this is relatively simpler than receiving a 'ready' message from hidden browser window
+        // TODO: find a better way to wait for hidden browser window ready
         for (let i = 0; i < 30; i++) {
             if (this.hiddenBrowserWindowPort) {
                 break;
@@ -154,6 +148,14 @@ class WindowMessageHandler {
                 await new Promise<void>(resolve => setTimeout(resolve, 100));
             }
         }
+
+        const promise = new Promise<RawObject>((resolve, reject) => {
+            this.scriptResultResolvers.push({
+                id,
+                resolve,
+                reject,
+            });
+        });
 
         this.hiddenBrowserWindowPort?.postMessage({
             action: 'message-channel://hidden.browser-window/execute',

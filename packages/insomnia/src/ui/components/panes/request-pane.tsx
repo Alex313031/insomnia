@@ -127,6 +127,7 @@ export const RequestPane: FC<Props> = ({
   const contentType =
     getContentTypeFromHeaders(activeRequest.headers) ||
     activeRequest.body.mimeType;
+
   return (
     <Pane type="request">
       <PaneHeader>
@@ -157,13 +158,13 @@ export const RequestPane: FC<Props> = ({
             <AuthWrapper />
           </ErrorBoundary>
         </TabItem>
-        <TabItem key="pre-request-script" title={'Pre-request Script'}>
+        <TabItem key="pre-request-script" title={'Pre-request Script'} >
           <PreRequestScriptEditor
             uniquenessKey={uniqueKey}
             contentType='text/javascript'
             content={activeRequest.preRequestScript || ''}
             onChange={handlePreRequestScriptChange}
-          />;
+          />
         </TabItem>
         <TabItem
           key="query"
