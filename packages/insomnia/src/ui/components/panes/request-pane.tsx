@@ -158,13 +158,18 @@ export const RequestPane: FC<Props> = ({
             <AuthWrapper />
           </ErrorBoundary>
         </TabItem>
-        <TabItem key="pre-request-script" title={'Pre-request Script'} >
+        <TabItem
+          key="pre-request-script"
+          title={'Pre-request Script'}
+          aria-label={settings.experimentalFlagPreRequestScript ? '' : 'experimental'}
+        >
           <PreRequestScriptEditor
             uniquenessKey={uniqueKey}
             contentType='text/javascript'
             content={activeRequest.preRequestScript || ''}
             onChange={handlePreRequestScriptChange}
           />
+          )
         </TabItem>
         <TabItem
           key="query"

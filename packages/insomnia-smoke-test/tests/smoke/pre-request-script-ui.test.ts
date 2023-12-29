@@ -17,6 +17,14 @@ test.describe('pre-request UI tests', async () => {
         await page.getByRole('dialog').getByRole('button', { name: 'Import' }).click();
 
         await page.getByText('CollectionSmoke testsjust now').click();
+
+        // Set filter responses by environment
+        await page.locator('[data-testid="settings-button"]').click();
+        await page.locator('text=Insomnia Preferences').first().click();
+        await page.getByRole('tab', { name: 'Experiments' }).click();
+        // await page.waitForTimeout(60000);
+        await page.getByText('Pre-request Script', { exact: true }).click();
+        await page.locator('.app').press('Escape');
     });
 
     const testCases = [
